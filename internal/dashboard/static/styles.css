@@ -195,6 +195,40 @@ kbd {
   margin-bottom: 8px;
 }
 
+.resources {
+  margin-top: 32px;
+  padding: 20px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.resources h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--text);
+}
+
+.resources ul {
+  list-style: none;
+  padding: 0;
+}
+
+.resources li {
+  padding: 6px 0;
+  font-size: 13px;
+}
+
+.resources a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.resources a:hover {
+  text-decoration: underline;
+}
+
 #stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
