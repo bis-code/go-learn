@@ -63,17 +63,20 @@ type ProgressStats struct {
 	TotalAnswers    int `json:"totalAnswers"`
 }
 
-func NewStore(dbPath string) (*Store, error) {
+// NewStore opens or creates a SQLite database.
+// If dbPath is empty, it defaults to data/learn.sqlite relative to projectDir.
+// If projectDir is also empty, it uses the current working directory.
+func NewStore(dbPath string, projectDir ...string) (*Store, error) {
 	if dbPath == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return nil, fmt.Errorf("get home dir: %w", err)
+		base := "."
+		if len(projectDir) > 0 && projectDir[0] != "" {
+			base = projectDir[0]
 		}
-		dir := filepath.Join(home, ".go-learn")
+		dir := filepath.Join(base, "data")
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return nil, fmt.Errorf("create data dir: %w", err)
 		}
-		dbPath = filepath.Join(dir, "data.sqlite")
+		dbPath = filepath.Join(dir, "learn.sqlite")
 	}
 
 	db, err := sql.Open("sqlite", dbPath+"?_journal_mode=WAL&_busy_timeout=5000")
