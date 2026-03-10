@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Go Learn — Progress Tracker</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.1/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/go.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/protobuf.min.js"></script>
+</head>
+<body>
+  <div id="app">
+    <aside id="sidebar">
+      <div class="sidebar-header">
+        <h1>Go Learn</h1>
+        <div id="progress-bar">
+          <div id="progress-fill"></div>
+          <span id="progress-text"></span>
+        </div>
+      </div>
+      <nav id="phase-tree"></nav>
+      <div class="sidebar-footer">
+        <kbd>Cmd+K</kbd> Search
+      </div>
+    </aside>
+    <main id="content">
+      <div id="welcome">
+        <h2>Welcome to Go Learn</h2>
+        <p>Select a topic from the sidebar to get started.</p>
+        <p>Use <kbd>Cmd+K</kbd> to search across all your questions and notes.</p>
+        <div id="stats-grid"></div>
+      </div>
+      <div id="topic-view" class="hidden">
+        <div id="topic-header">
+          <div class="topic-title-row">
+            <h2 id="topic-name"></h2>
+            <span id="topic-status" class="badge"></span>
+          </div>
+          <p id="topic-description"></p>
+        </div>
+        <div id="entries-list"></div>
+        <div id="empty-state" class="hidden">
+          <p>No questions yet for this topic.</p>
+          <p class="muted">Start a Claude session and use <code>learn_log_question</code> to log questions here.</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Search Modal -->
+  <div id="search-modal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <input id="search-input" type="text" placeholder="Search questions, answers, notes..." autofocus>
+      <div id="search-results"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

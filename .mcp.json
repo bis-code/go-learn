@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "go-learn": {
+      "command": "/Users/baicoianuionut/som/personal-projects/go-learn/bin/go-learn-server",
+      "args": []
+    }
+  }
+}
