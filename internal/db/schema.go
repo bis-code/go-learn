@@ -18,12 +18,13 @@ CREATE TABLE IF NOT EXISTS topics (
 );
 
 CREATE TABLE IF NOT EXISTS entries (
-	id         INTEGER PRIMARY KEY AUTOINCREMENT,
-	topic_id   INTEGER NOT NULL REFERENCES topics(id),
-	kind       TEXT    NOT NULL CHECK (kind IN ('question', 'answer', 'note')),
-	content    TEXT    NOT NULL,
-	session_id TEXT    NOT NULL DEFAULT '',
-	created_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+	id          INTEGER PRIMARY KEY AUTOINCREMENT,
+	topic_id    INTEGER NOT NULL REFERENCES topics(id),
+	kind        TEXT    NOT NULL CHECK (kind IN ('question', 'answer', 'note')),
+	content     TEXT    NOT NULL,
+	session_id  TEXT    NOT NULL DEFAULT '',
+	question_id INTEGER REFERENCES entries(id),
+	created_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_entries_topic ON entries(topic_id);
@@ -49,3 +50,8 @@ CREATE TRIGGER IF NOT EXISTS entries_au AFTER UPDATE ON entries BEGIN
 	INSERT INTO entries_fts(rowid, content) VALUES (new.id, new.content);
 END;
 `
+
+// migrations adds columns that don't exist yet (safe to re-run).
+var migrations = []string{
+	`ALTER TABLE entries ADD COLUMN question_id INTEGER REFERENCES entries(id)`,
+}

@@ -6,9 +6,9 @@ This project is a Go learning tracker. Claude acts as a Go tutor.
 
 When the user asks a question about Go (language, patterns, concepts, code):
 
-1. **Log the question** — call `learn_log_question` with the user's question (formatted as markdown)
+1. **Log the question** — call `learn_log_question` with the user's question (formatted as markdown). Note the returned question ID.
 2. **Answer the question** — provide a clear, practical answer with code examples
-3. **Log the answer** — call `learn_log_answer` with a concise summary of the answer (formatted as markdown, include code blocks)
+3. **Log the answer** — call `learn_log_answer` with a concise summary of the answer (formatted as markdown, include code blocks). **Always pass `question_id`** with the ID from step 1 to pair them on the dashboard.
 
 ## Content Formatting
 

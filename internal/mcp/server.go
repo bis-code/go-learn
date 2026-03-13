@@ -60,6 +60,7 @@ func (s *Server) registerTools() {
 			mcp.WithDescription("Log an answer or note for the current topic. Supports markdown with code blocks."),
 			mcp.WithString("content", mcp.Description("The answer/note content (markdown)"), mcp.Required()),
 			mcp.WithString("kind", mcp.Description("Entry kind: 'answer' or 'note' (default: answer)")),
+			mcp.WithString("question_id", mcp.Description("ID of the question this answers (pairs them in the dashboard)")),
 			mcp.WithString("session_id", mcp.Description("Session identifier (optional)")),
 		),
 		s.handleLogAnswer,
@@ -143,7 +144,7 @@ func (s *Server) handleLogQuestion(_ context.Context, request mcp.CallToolReques
 		return mcp.NewToolResultError("no active topic. Use learn_set_topic first."), nil
 	}
 
-	entry, err := s.store.CreateEntry(active.ID, "question", content, sessionID)
+	entry, err := s.store.CreateEntry(active.ID, "question", content, sessionID, nil)
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("failed to log question: %v", err)), nil
 	}
@@ -163,6 +164,13 @@ func (s *Server) handleLogAnswer(_ context.Context, request mcp.CallToolRequest)
 	}
 	sessionID := request.GetString("session_id", "")
 
+	var questionID *int
+	if qidStr := request.GetString("question_id", ""); qidStr != "" {
+		if qid, err := strconv.Atoi(qidStr); err == nil {
+			questionID = &qid
+		}
+	}
+
 	active, err := s.store.GetActiveTopic()
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("error getting active topic: %v", err)), nil
@@ -171,7 +179,7 @@ func (s *Server) handleLogAnswer(_ context.Context, request mcp.CallToolRequest)
 		return mcp.NewToolResultError("no active topic. Use learn_set_topic first."), nil
 	}
 
-	entry, err := s.store.CreateEntry(active.ID, kind, content, sessionID)
+	entry, err := s.store.CreateEntry(active.ID, kind, content, sessionID, questionID)
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("failed to log %s: %v", kind, err)), nil
 	}

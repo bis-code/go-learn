@@ -295,11 +295,57 @@ kbd {
   font-size: 14px;
 }
 
+/* Topic reference links */
+.topic-refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.ref-link {
+  display: inline-block;
+  font-size: 12px;
+  padding: 4px 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--accent);
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.ref-link:hover {
+  background: rgba(56, 139, 253, 0.15);
+  border-color: var(--accent);
+}
+
 /* Entries */
 #entries-list {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+/* Q&A paired cards */
+.qa-card {
+  margin-bottom: 0;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.qa-question {
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.qa-answer {
+  background: var(--bg-secondary);
+}
+
+.qa-answer + .qa-answer {
+  border-top: 1px solid var(--border);
 }
 
 .entry-card {

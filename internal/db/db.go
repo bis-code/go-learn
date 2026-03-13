@@ -31,12 +31,13 @@ type Topic struct {
 }
 
 type Entry struct {
-	ID        int    `json:"id"`
-	TopicID   int    `json:"topicId"`
-	Kind      string `json:"kind"`
-	Content   string `json:"content"`
-	SessionID string `json:"sessionId"`
-	CreatedAt string `json:"createdAt"`
+	ID         int    `json:"id"`
+	TopicID    int    `json:"topicId"`
+	Kind       string `json:"kind"`
+	Content    string `json:"content"`
+	SessionID  string `json:"sessionId"`
+	QuestionID *int   `json:"questionId"`
+	CreatedAt  string `json:"createdAt"`
 }
 
 type TopicWithEntries struct {
@@ -86,6 +87,11 @@ func NewStore(dbPath string, projectDir ...string) (*Store, error) {
 
 	if _, err := db.Exec(schema); err != nil {
 		return nil, fmt.Errorf("apply schema: %w", err)
+	}
+
+	// Apply additive migrations (safe to re-run).
+	for _, m := range migrations {
+		db.Exec(m) // ignore "duplicate column" errors
 	}
 
 	return &Store{db: db}, nil
@@ -198,29 +204,30 @@ func (s *Store) GetActiveTopic() (*Topic, error) {
 
 // --- Entries ---
 
-func (s *Store) CreateEntry(topicID int, kind, content, sessionID string) (*Entry, error) {
+func (s *Store) CreateEntry(topicID int, kind, content, sessionID string, questionID *int) (*Entry, error) {
 	now := time.Now().UTC().Format(time.RFC3339)
 	result, err := s.db.Exec(
-		"INSERT INTO entries (topic_id, kind, content, session_id, created_at) VALUES (?, ?, ?, ?, ?)",
-		topicID, kind, content, sessionID, now,
+		"INSERT INTO entries (topic_id, kind, content, session_id, question_id, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+		topicID, kind, content, sessionID, questionID, now,
 	)
 	if err != nil {
 		return nil, err
 	}
 	id, _ := result.LastInsertId()
 	return &Entry{
-		ID:        int(id),
-		TopicID:   topicID,
-		Kind:      kind,
-		Content:   content,
-		SessionID: sessionID,
-		CreatedAt: now,
+		ID:         int(id),
+		TopicID:    topicID,
+		Kind:       kind,
+		Content:    content,
+		SessionID:  sessionID,
+		QuestionID: questionID,
+		CreatedAt:  now,
 	}, nil
 }
 
 func (s *Store) ListEntries(topicID int) ([]Entry, error) {
 	rows, err := s.db.Query(
-		"SELECT id, topic_id, kind, content, session_id, created_at FROM entries WHERE topic_id = ? ORDER BY created_at",
+		"SELECT id, topic_id, kind, content, session_id, question_id, created_at FROM entries WHERE topic_id = ? ORDER BY created_at",
 		topicID,
 	)
 	if err != nil {
@@ -231,7 +238,7 @@ func (s *Store) ListEntries(topicID int) ([]Entry, error) {
 	var entries []Entry
 	for rows.Next() {
 		var e Entry
-		if err := rows.Scan(&e.ID, &e.TopicID, &e.Kind, &e.Content, &e.SessionID, &e.CreatedAt); err != nil {
+		if err := rows.Scan(&e.ID, &e.TopicID, &e.Kind, &e.Content, &e.SessionID, &e.QuestionID, &e.CreatedAt); err != nil {
 			return nil, err
 		}
 		entries = append(entries, e)
@@ -241,7 +248,7 @@ func (s *Store) ListEntries(topicID int) ([]Entry, error) {
 
 func (s *Store) Search(query string) ([]SearchResult, error) {
 	rows, err := s.db.Query(`
-		SELECT e.id, e.topic_id, e.kind, e.content, e.session_id, e.created_at,
+		SELECT e.id, e.topic_id, e.kind, e.content, e.session_id, e.question_id, e.created_at,
 		       t.name, p.name
 		FROM entries_fts fts
 		JOIN entries e ON e.id = fts.rowid
@@ -261,7 +268,7 @@ func (s *Store) Search(query string) ([]SearchResult, error) {
 		var r SearchResult
 		if err := rows.Scan(
 			&r.Entry.ID, &r.Entry.TopicID, &r.Entry.Kind, &r.Entry.Content,
-			&r.Entry.SessionID, &r.Entry.CreatedAt,
+			&r.Entry.SessionID, &r.Entry.QuestionID, &r.Entry.CreatedAt,
 			&r.TopicName, &r.PhaseName,
 		); err != nil {
 			return nil, err
