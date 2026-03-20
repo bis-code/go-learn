@@ -13,6 +13,7 @@ marked.setOptions({
 const state = {
   phases: [],
   activeTopic: null,
+  activeTab: 'qa',
   searchTimeout: null,
 };
 
@@ -336,6 +337,7 @@ function togglePhase(el) {
 
 async function selectTopic(id) {
   state.activeTopic = id;
+  state.activeTab = 'qa';
 
   document.querySelectorAll('.topic-item').forEach(el => {
     el.classList.toggle('active', parseInt(el.dataset.topicId) === id);
@@ -343,6 +345,7 @@ async function selectTopic(id) {
 
   const data = await api(`/api/topics/${id}`);
   renderTopicView(data);
+  switchTab('qa');
 }
 
 // --- Search ---
@@ -436,6 +439,328 @@ async function refresh() {
   if (state.activeTopic) {
     const data = await api(`/api/topics/${state.activeTopic}`);
     renderTopicView(data);
+  }
+}
+
+// --- Tabs ---
+function switchTab(tab) {
+  state.activeTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    const btnTab = btn.getAttribute('onclick').includes("'qa'") ? 'qa' : 'visualize';
+    btn.classList.toggle('active', btnTab === tab);
+  });
+  document.getElementById('qa-panel').classList.toggle('hidden', tab !== 'qa');
+  document.getElementById('viz-panel').classList.toggle('hidden', tab !== 'visualize');
+
+  if (tab === 'visualize') {
+    renderVizSelector();
+  }
+}
+
+// --- Visualizations ---
+const vizState = { currentViz: 0, currentStep: 0 };
+
+function goroutine(label, cls, content) {
+  return `<div class="viz-goroutine">
+    <div class="viz-goroutine-box ${cls}">${content || label}</div>
+    <div class="viz-goroutine-label">${label}</div>
+  </div>`;
+}
+
+function channel(label, cls, content) {
+  return `<div class="viz-channel">
+    <div class="viz-channel-pipe ${cls}">${content || ''}</div>
+    <div class="viz-channel-label">${label}</div>
+  </div>`;
+}
+
+function arrow(active) {
+  return `<span class="viz-arrow ${active ? 'active' : ''}">&rarr;</span>`;
+}
+
+function bufferSlots(slots) {
+  return `<div class="viz-buffer-slots">${slots.map(s =>
+    `<div class="viz-slot ${s ? 'filled' : 'empty'}">${s || ''}</div>`
+  ).join('')}</div>`;
+}
+
+const topicVisualizations = {
+  'Goroutines & Channels': [
+    {
+      title: 'Unbuffered Channel',
+      steps: [
+        {
+          canvas: () => goroutine('main', 'g-main', 'main()') + arrow(false) +
+            channel('ch', 'ch-empty', 'empty') + arrow(false) + goroutine('goroutine', 'g-sender', 'go func()'),
+          desc: 'Channel created with <code>ch := make(chan string)</code>. Both sides exist but nothing has happened yet.'
+        },
+        {
+          canvas: () => goroutine('main', 'g-main', 'main()') + arrow(false) +
+            channel('ch', 'ch-empty', 'empty') + arrow(true) +
+            goroutine('goroutine', 'g-blocked', 'ch &lt;- "hi"<br><small>BLOCKED</small>'),
+          desc: 'Goroutine tries to send <code>"hi"</code> into the channel. But no one is receiving yet, so it <strong>blocks</strong>. The goroutine is paused.'
+        },
+        {
+          canvas: () => goroutine('main', 'g-receiver', '&lt;-ch<br><small>READY</small>') + arrow(true) +
+            channel('ch', 'ch-has-data', '<span class="viz-data">"hi"</span>') + arrow(true) +
+            goroutine('goroutine', 'g-sender', 'ch &lt;- "hi"'),
+          desc: 'Main calls <code>&lt;-ch</code> (receive). Now both sides are ready — the data transfers through the channel. This is the <strong>handshake</strong>.'
+        },
+        {
+          canvas: () => goroutine('main', 'g-main', 'msg = "hi"') + arrow(false) +
+            channel('ch', 'ch-empty', 'empty') + arrow(false) +
+            goroutine('goroutine', 'viz-done', 'done'),
+          desc: 'Transfer complete. Main has <code>"hi"</code>, goroutine continues (or exits). Channel is empty again. <strong>Key insight:</strong> unbuffered channels synchronize — both sides must be ready.'
+        },
+      ]
+    },
+    {
+      title: 'Buffered Channel',
+      steps: [
+        {
+          canvas: () => goroutine('sender', 'g-sender', 'go func()') + arrow(false) +
+            `<div class="viz-channel"><div class="viz-channel-pipe ch-empty">${bufferSlots([null, null, null])}</div><div class="viz-channel-label">ch (cap: 3)</div></div>` +
+            arrow(false) + goroutine('receiver', 'g-receiver', 'main()'),
+          desc: 'Buffered channel created with <code>ch := make(chan int, 3)</code>. It can hold up to 3 values without a receiver being ready.'
+        },
+        {
+          canvas: () => goroutine('sender', 'g-sender', 'ch &lt;- 1<br>ch &lt;- 2') + arrow(true) +
+            `<div class="viz-channel"><div class="viz-channel-pipe ch-has-data">${bufferSlots([1, 2, null])}</div><div class="viz-channel-label">ch (2/3)</div></div>` +
+            arrow(false) + goroutine('receiver', 'g-receiver', 'waiting...'),
+          desc: 'Sender sends 1 and 2. They go into the buffer. <strong>Sender does NOT block</strong> because there is room in the buffer. No receiver needed yet.'
+        },
+        {
+          canvas: () => goroutine('sender', 'g-sender', 'ch &lt;- 3') + arrow(true) +
+            `<div class="viz-channel"><div class="viz-channel-pipe ch-full">${bufferSlots([1, 2, 3])}</div><div class="viz-channel-label">ch (3/3) FULL</div></div>` +
+            arrow(false) + goroutine('receiver', 'g-receiver', 'waiting...'),
+          desc: 'Sender sends 3. Buffer is now <strong>full</strong>. The next send will block until someone receives.'
+        },
+        {
+          canvas: () => goroutine('sender', 'g-blocked', 'ch &lt;- 4<br><small>BLOCKED</small>') + arrow(false) +
+            `<div class="viz-channel"><div class="viz-channel-pipe ch-full">${bufferSlots([1, 2, 3])}</div><div class="viz-channel-label">ch (3/3) FULL</div></div>` +
+            arrow(false) + goroutine('receiver', 'g-receiver', 'waiting...'),
+          desc: 'Sender tries to send 4 but buffer is full — <strong>sender blocks</strong>. Same as unbuffered at this point.'
+        },
+        {
+          canvas: () => goroutine('sender', 'g-sender', 'ch &lt;- 4') + arrow(true) +
+            `<div class="viz-channel"><div class="viz-channel-pipe ch-has-data">${bufferSlots([2, 3, 4])}</div><div class="viz-channel-label">ch (3/3)</div></div>` +
+            arrow(true) + goroutine('receiver', 'g-main', 'v := &lt;-ch<br>v = 1'),
+          desc: 'Receiver reads 1 from the buffer, making room. Sender\'s 4 goes in. Buffer stays full but data is flowing. <strong>Key insight:</strong> buffered channels decouple send/receive timing.'
+        },
+      ]
+    },
+    {
+      title: 'Channel Direction',
+      steps: [
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:20px;align-items:center;width:100%">
+            <div style="display:flex;align-items:center;gap:12px">
+              ${goroutine('', 'g-main', 'func(ch chan string)')}
+              <span style="color:var(--text-muted);font-size:13px">bidirectional — can send and receive</span>
+            </div></div>`,
+          desc: '<code>chan string</code> — the default. Function can both send to and receive from this channel.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:20px;align-items:center;width:100%">
+            <div style="display:flex;align-items:center;gap:12px">
+              ${goroutine('', 'g-sender', 'func(ch chan&lt;- string)')}
+              <span style="color:var(--text-muted);font-size:13px">send-only — can only send, not receive</span>
+            </div></div>`,
+          desc: '<code>chan&lt;- string</code> — send-only. The function can put data in but not take it out. Arrow points INTO chan.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:20px;align-items:center;width:100%">
+            <div style="display:flex;align-items:center;gap:12px">
+              ${goroutine('', 'g-receiver', 'func(ch &lt;-chan string)')}
+              <span style="color:var(--text-muted);font-size:13px">receive-only — can only receive, not send</span>
+            </div></div>`,
+          desc: '<code>&lt;-chan string</code> — receive-only. The function can take data out but not put it in. Arrow points OUT of chan. This prevents bugs by restricting what each side can do.'
+        },
+      ]
+    },
+    {
+      title: 'Select Statement',
+      steps: [
+        {
+          canvas: () => `<div class="viz-select-container">
+            <div class="viz-select-case waiting">case msg := &lt;-ch1:  &nbsp; // waiting...</div>
+            <div class="viz-select-case waiting">case msg := &lt;-ch2:  &nbsp; // waiting...</div>
+            <div class="viz-select-case waiting">case msg := &lt;-ch3:  &nbsp; // waiting...</div>
+            <div class="viz-select-case waiting">default:  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; // fallback</div>
+          </div>`,
+          desc: '<code>select</code> waits on multiple channels at once. It blocks until one of them is ready. Like a switch statement for channels.'
+        },
+        {
+          canvas: () => `<div class="viz-select-container">
+            <div class="viz-select-case waiting">case msg := &lt;-ch1:  &nbsp; // waiting...</div>
+            <div class="viz-select-case selected">case msg := &lt;-ch2:  &nbsp; // DATA READY!</div>
+            <div class="viz-select-case waiting">case msg := &lt;-ch3:  &nbsp; // waiting...</div>
+            <div class="viz-select-case waiting">default:  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; // skipped</div>
+          </div>`,
+          desc: 'Data arrives on <code>ch2</code>! Select picks this case and runs its code. The other cases are skipped. If multiple are ready, Go picks one <strong>randomly</strong>.'
+        },
+        {
+          canvas: () => `<div class="viz-select-container">
+            <div class="viz-select-case waiting">case msg := &lt;-ch1:  &nbsp; // no data</div>
+            <div class="viz-select-case waiting">case msg := &lt;-ch2:  &nbsp; // no data</div>
+            <div class="viz-select-case waiting">case msg := &lt;-ch3:  &nbsp; // no data</div>
+            <div class="viz-select-case selected">default:  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; // RUNS!</div>
+          </div>`,
+          desc: 'If NO channel is ready and there is a <code>default</code> case, it runs immediately — no blocking. Without default, select blocks until one channel is ready.'
+        },
+        {
+          canvas: () => `<div class="viz-select-container">
+            <div class="viz-select-case selected">case &lt;-time.After(5s): // TIMEOUT!</div>
+            <div class="viz-select-case waiting">case msg := &lt;-ch:  &nbsp;&nbsp; // still waiting</div>
+          </div>`,
+          desc: 'Common pattern: use <code>time.After</code> as a timeout. If ch doesn\'t deliver within 5 seconds, the timeout case fires. Prevents waiting forever.'
+        },
+      ]
+    },
+    {
+      title: 'Range + Close',
+      steps: [
+        {
+          canvas: () => goroutine('sender', 'g-sender', 'ch &lt;- 1<br>ch &lt;- 2<br>ch &lt;- 3') + arrow(true) +
+            channel('ch', 'ch-has-data', '<span class="viz-data">1, 2, 3</span>') + arrow(true) +
+            goroutine('receiver', 'g-receiver', 'for v := range ch'),
+          desc: 'Sender puts values into channel. Receiver uses <code>for v := range ch</code> to read values one by one as they arrive. The loop keeps going.'
+        },
+        {
+          canvas: () => goroutine('sender', 'g-sender', 'close(ch)') + arrow(false) +
+            channel('ch', 'ch-closed', 'CLOSED') + arrow(true) +
+            goroutine('receiver', 'g-receiver', 'for v := range ch<br><small>draining...</small>'),
+          desc: 'Sender calls <code>close(ch)</code> — signals "no more data." Receiver\'s range loop reads remaining values then exits automatically.'
+        },
+        {
+          canvas: () => goroutine('sender', 'viz-done', 'done') + arrow(false) +
+            channel('ch', 'ch-closed', 'CLOSED') + arrow(false) +
+            goroutine('receiver', 'g-main', 'loop exited'),
+          desc: 'Range loop exits cleanly. <strong>Key rules:</strong> only the sender closes. Never close a channel twice (panic). Receivers detect close via <code>v, ok := &lt;-ch</code> where ok is false.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:8px;align-items:center">
+            <code style="font-size:13px;color:var(--text)">v, ok := &lt;-ch</code>
+            <div style="display:flex;gap:24px;margin-top:8px">
+              <div style="text-align:center"><span class="viz-data">42</span><br><small style="color:var(--green)">ok = true</small></div>
+              <div style="text-align:center"><span style="color:var(--text-muted)">0</span><br><small style="color:var(--red)">ok = false (closed)</small></div>
+            </div>
+          </div>`,
+          desc: 'You can also check manually: <code>v, ok := &lt;-ch</code>. If ok is true, v has data. If ok is false, channel is closed and v is the zero value.'
+        },
+      ]
+    },
+    {
+      title: 'Pipeline Pattern',
+      steps: [
+        {
+          canvas: () => goroutine('generate', 'g-sender', 'gen()') + arrow(false) +
+            channel('', 'ch-empty', 'ch1') + arrow(false) +
+            goroutine('transform', 'g-main', 'square()') + arrow(false) +
+            channel('', 'ch-empty', 'ch2') + arrow(false) +
+            goroutine('consume', 'g-receiver', 'print()'),
+          desc: 'Pipeline: chain of stages connected by channels. Each stage is a goroutine that receives from one channel and sends to the next.'
+        },
+        {
+          canvas: () => goroutine('generate', 'g-sender', '1, 2, 3, 4') + arrow(true) +
+            channel('', 'ch-has-data', '<span class="viz-data">1</span>') + arrow(false) +
+            goroutine('transform', 'g-main', 'square()') + arrow(false) +
+            channel('', 'ch-empty', 'ch2') + arrow(false) +
+            goroutine('consume', 'g-receiver', 'waiting'),
+          desc: 'Generator produces values (1, 2, 3, 4) and sends them one at a time into ch1.'
+        },
+        {
+          canvas: () => goroutine('generate', 'g-sender', '2, 3, 4') + arrow(true) +
+            channel('', 'ch-has-data', '<span class="viz-data">2</span>') + arrow(true) +
+            goroutine('transform', 'g-main', '1 &rarr; 1') + arrow(true) +
+            channel('', 'ch-has-data', '<span class="viz-data">1</span>') + arrow(false) +
+            goroutine('consume', 'g-receiver', 'waiting'),
+          desc: 'Transform reads 1 from ch1, squares it (1&rarr;1), sends result to ch2. All stages run <strong>concurrently</strong>.'
+        },
+        {
+          canvas: () => goroutine('generate', 'g-sender', '3, 4') + arrow(true) +
+            channel('', 'ch-has-data', '<span class="viz-data">3</span>') + arrow(true) +
+            goroutine('transform', 'g-main', '2 &rarr; 4') + arrow(true) +
+            channel('', 'ch-has-data', '<span class="viz-data">4</span>') + arrow(true) +
+            goroutine('consume', 'g-receiver', 'print(1)'),
+          desc: 'Data flows through all stages simultaneously. Consumer prints 1 while transform processes 2 and generator produces 3. All three goroutines work in parallel.'
+        },
+        {
+          canvas: () => goroutine('generate', 'viz-done', 'close(ch1)') + arrow(false) +
+            channel('', 'ch-closed', 'closed') + arrow(false) +
+            goroutine('transform', 'viz-done', 'close(ch2)') + arrow(false) +
+            channel('', 'ch-closed', 'closed') + arrow(false) +
+            goroutine('consume', 'g-receiver', '1, 4, 9, 16'),
+          desc: 'Generator finishes and closes ch1. Transform drains ch1, closes ch2. Consumer gets all results: 1, 4, 9, 16. <strong>Closure cascades</strong> through the pipeline.'
+        },
+      ]
+    },
+  ],
+};
+
+function renderVizSelector() {
+  const topicName = document.getElementById('topic-name').textContent;
+  const vizList = topicVisualizations[topicName];
+  const selector = document.getElementById('viz-selector');
+  const stage = document.getElementById('viz-stage');
+  const noContent = document.getElementById('viz-no-content');
+
+  if (!vizList || vizList.length === 0) {
+    selector.innerHTML = '';
+    stage.classList.add('hidden');
+    noContent.classList.remove('hidden');
+    return;
+  }
+
+  noContent.classList.add('hidden');
+  stage.classList.remove('hidden');
+
+  selector.innerHTML = vizList.map((v, i) =>
+    `<button class="viz-select-btn ${i === vizState.currentViz ? 'active' : ''}" onclick="selectViz(${i})">${v.title}</button>`
+  ).join('');
+
+  renderVizStep();
+}
+
+function selectViz(index) {
+  vizState.currentViz = index;
+  vizState.currentStep = 0;
+  document.querySelectorAll('.viz-select-btn').forEach((btn, i) => {
+    btn.classList.toggle('active', i === index);
+  });
+  renderVizStep();
+}
+
+function renderVizStep() {
+  const topicName = document.getElementById('topic-name').textContent;
+  const vizList = topicVisualizations[topicName];
+  if (!vizList) return;
+
+  const viz = vizList[vizState.currentViz];
+  if (!viz) return;
+
+  const step = viz.steps[vizState.currentStep];
+
+  document.getElementById('viz-canvas').innerHTML = step.canvas();
+  document.getElementById('viz-description').innerHTML = step.desc;
+  document.getElementById('viz-step-label').textContent = `Step ${vizState.currentStep + 1} / ${viz.steps.length}`;
+  document.getElementById('viz-prev').disabled = vizState.currentStep === 0;
+  document.getElementById('viz-next').disabled = vizState.currentStep === viz.steps.length - 1;
+}
+
+function vizPrev() {
+  if (vizState.currentStep > 0) {
+    vizState.currentStep--;
+    renderVizStep();
+  }
+}
+
+function vizNext() {
+  const topicName = document.getElementById('topic-name').textContent;
+  const viz = topicVisualizations[topicName]?.[vizState.currentViz];
+  if (viz && vizState.currentStep < viz.steps.length - 1) {
+    vizState.currentStep++;
+    renderVizStep();
   }
 }
 

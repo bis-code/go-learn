@@ -55,11 +55,32 @@
           </div>
           <p id="topic-description"></p>
           <div id="topic-references" class="hidden"></div>
+          <div id="topic-tabs">
+            <button class="tab-btn active" onclick="switchTab('qa')">Q&A</button>
+            <button class="tab-btn" onclick="switchTab('visualize')">Visualize</button>
+          </div>
         </div>
-        <div id="entries-list"></div>
-        <div id="empty-state" class="hidden">
-          <p>No questions yet for this topic.</p>
-          <p class="muted">Start a Claude session and use <code>learn_log_question</code> to log questions here.</p>
+        <div id="qa-panel">
+          <div id="entries-list"></div>
+          <div id="empty-state" class="hidden">
+            <p>No questions yet for this topic.</p>
+            <p class="muted">Start a Claude session and use <code>learn_log_question</code> to log questions here.</p>
+          </div>
+        </div>
+        <div id="viz-panel" class="hidden">
+          <div id="viz-no-content" class="hidden">
+            <p class="muted">No visualizations available for this topic yet.</p>
+          </div>
+          <div id="viz-selector"></div>
+          <div id="viz-stage">
+            <div id="viz-canvas"></div>
+            <div id="viz-description"></div>
+            <div id="viz-controls">
+              <button id="viz-prev" onclick="vizPrev()">Prev</button>
+              <span id="viz-step-label"></span>
+              <button id="viz-next" onclick="vizNext()">Next</button>
+            </div>
+          </div>
         </div>
       </div>
     </main>

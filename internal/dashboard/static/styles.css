@@ -295,6 +295,305 @@ kbd {
   font-size: 14px;
 }
 
+/* Topic tabs */
+#topic-tabs {
+  display: flex;
+  gap: 4px;
+  margin-top: 16px;
+}
+
+.tab-btn {
+  padding: 6px 16px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.tab-btn:hover {
+  color: var(--text);
+  background: var(--bg-tertiary);
+}
+
+.tab-btn.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(88, 166, 255, 0.1);
+}
+
+/* Visualization panel */
+#viz-panel {
+  margin-top: 16px;
+}
+
+#viz-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.viz-select-btn {
+  padding: 8px 14px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.viz-select-btn:hover {
+  color: var(--text);
+  border-color: var(--text-muted);
+}
+
+.viz-select-btn.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(88, 166, 255, 0.1);
+}
+
+#viz-stage {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+#viz-canvas {
+  padding: 32px;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+#viz-description {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+#viz-description code {
+  background: var(--bg-tertiary);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  color: var(--accent);
+}
+
+#viz-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 12px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-tertiary);
+}
+
+#viz-controls button {
+  padding: 6px 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+#viz-controls button:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+#viz-controls button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+#viz-step-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  min-width: 80px;
+  text-align: center;
+}
+
+#viz-no-content {
+  text-align: center;
+  padding: 48px;
+}
+
+/* Visualization diagram elements */
+.viz-goroutine {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 100px;
+}
+
+.viz-goroutine-box {
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.viz-goroutine-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.viz-channel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 120px;
+}
+
+.viz-channel-pipe {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 16px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  transition: all 0.3s ease;
+  min-width: 100px;
+  justify-content: center;
+}
+
+.viz-channel-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.viz-arrow {
+  font-size: 24px;
+  color: var(--text-muted);
+  transition: color 0.3s ease;
+}
+
+.viz-arrow.active {
+  color: var(--accent);
+}
+
+.viz-data {
+  display: inline-block;
+  padding: 3px 8px;
+  background: rgba(88, 166, 255, 0.2);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  color: var(--accent);
+}
+
+.viz-blocked {
+  border-color: var(--yellow) !important;
+  color: var(--yellow) !important;
+}
+
+.viz-active {
+  border-color: var(--green) !important;
+  color: var(--green) !important;
+}
+
+.viz-done {
+  border-color: var(--text-muted) !important;
+  opacity: 0.5;
+}
+
+.g-main { background: rgba(88, 166, 255, 0.15); border: 1px solid var(--accent); color: var(--accent); }
+.g-sender { background: rgba(63, 185, 80, 0.15); border: 1px solid var(--green); color: var(--green); }
+.g-receiver { background: rgba(188, 140, 255, 0.15); border: 1px solid var(--purple); color: var(--purple); }
+.g-blocked { background: rgba(210, 153, 34, 0.15); border: 1px solid var(--yellow); color: var(--yellow); }
+
+.ch-empty { border-color: var(--border); color: var(--text-muted); }
+.ch-has-data { border-color: var(--accent); color: var(--accent); background: rgba(88, 166, 255, 0.05); }
+.ch-full { border-color: var(--yellow); color: var(--yellow); background: rgba(210, 153, 34, 0.05); }
+.ch-closed { border-color: var(--red); color: var(--red); opacity: 0.6; }
+
+/* Buffer slots */
+.viz-buffer-slots {
+  display: flex;
+  gap: 4px;
+}
+
+.viz-slot {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  transition: all 0.3s ease;
+}
+
+.viz-slot.filled {
+  background: rgba(88, 166, 255, 0.2);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.viz-slot.empty {
+  color: var(--text-muted);
+}
+
+/* Select diagram */
+.viz-select-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+
+.viz-select-case {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  transition: all 0.3s ease;
+  min-width: 200px;
+}
+
+.viz-select-case.selected {
+  border-color: var(--green);
+  background: rgba(63, 185, 80, 0.1);
+  color: var(--green);
+}
+
+.viz-select-case.waiting {
+  color: var(--text-muted);
+}
+
 /* Topic reference links */
 .topic-refs {
   display: flex;
