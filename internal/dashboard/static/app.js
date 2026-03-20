@@ -696,6 +696,232 @@ const topicVisualizations = {
       ]
     },
   ],
+  'Sync Primitives': [
+    {
+      title: 'Mutex vs RWMutex',
+      steps: [
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:24px;width:100%">
+            <div style="text-align:center;font-weight:600;color:var(--accent)">sync.Mutex — one at a time</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:8px">
+              ${goroutine('G1', 'g-main', 'Lock() ✅')}
+              ${goroutine('G2', 'g-blocked', 'Lock() ⏳')}
+              ${goroutine('G3', 'g-blocked', 'Lock() ⏳')}
+              ${goroutine('G4', 'g-blocked', 'Lock() ⏳')}
+            </div></div>`,
+          desc: '<code>sync.Mutex</code> — only <strong>one</strong> goroutine can hold the lock. Everyone else waits, whether they want to read or write.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:24px;width:100%">
+            <div style="text-align:center;font-weight:600;color:var(--green)">sync.RWMutex — readers share</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:8px">
+              ${goroutine('R1', 'g-receiver', 'RLock() ✅')}
+              ${goroutine('R2', 'g-receiver', 'RLock() ✅')}
+              ${goroutine('R3', 'g-receiver', 'RLock() ✅')}
+              ${goroutine('W1', 'g-blocked', 'Lock() ⏳')}
+            </div></div>`,
+          desc: '<code>sync.RWMutex</code> — multiple readers hold <code>RLock()</code> simultaneously. The writer waits until all readers finish. <strong>Use when reads >> writes.</strong>'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:24px;width:100%">
+            <div style="text-align:center;font-weight:600;color:var(--yellow)">RWMutex — writer's turn</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:8px">
+              ${goroutine('R1', 'g-blocked', 'RLock() ⏳')}
+              ${goroutine('R2', 'g-blocked', 'RLock() ⏳')}
+              ${goroutine('R3', 'g-blocked', 'RLock() ⏳')}
+              ${goroutine('W1', 'g-sender', 'Lock() ✅')}
+            </div></div>`,
+          desc: 'When a writer gets <code>Lock()</code>, <strong>all readers are blocked</strong>. The writer has exclusive access. Once it calls <code>Unlock()</code>, readers can enter again.'
+        },
+      ]
+    },
+    {
+      title: 'sync.Once',
+      steps: [
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:16px;align-items:center;width:100%">
+            <div style="display:flex;gap:8px">
+              ${goroutine('G1', 'g-sender', 'GetConfig()')}
+              ${goroutine('G2', 'g-sender', 'GetConfig()')}
+              ${goroutine('G3', 'g-sender', 'GetConfig()')}
+            </div>
+            ${arrow(true)}
+            <div class="viz-channel"><div class="viz-channel-pipe ch-empty">sync.Once</div><div class="viz-channel-label">not called yet</div></div>
+          </div>`,
+          desc: 'Three goroutines call <code>GetConfig()</code> at the same time. The config hasn\'t been loaded yet.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:16px;align-items:center;width:100%">
+            <div style="display:flex;gap:8px">
+              ${goroutine('G1', 'g-main', 'loading... ⚙️')}
+              ${goroutine('G2', 'g-blocked', 'waiting ⏳')}
+              ${goroutine('G3', 'g-blocked', 'waiting ⏳')}
+            </div>
+            ${arrow(true)}
+            <div class="viz-channel"><div class="viz-channel-pipe ch-has-data">sync.Once</div><div class="viz-channel-label">running func</div></div>
+          </div>`,
+          desc: '<code>once.Do(func)</code> — G1 wins the race and runs the load function. G2 and G3 <strong>block and wait</strong> — they don\'t skip, they don\'t run it again. They wait for G1 to finish.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:16px;align-items:center;width:100%">
+            <div style="display:flex;gap:8px">
+              ${goroutine('G1', 'g-receiver', 'config ✅')}
+              ${goroutine('G2', 'g-receiver', 'config ✅')}
+              ${goroutine('G3', 'g-receiver', 'config ✅')}
+            </div>
+            ${arrow(false)}
+            <div class="viz-channel"><div class="viz-channel-pipe ch-full">sync.Once</div><div class="viz-channel-label">done — never runs again</div></div>
+          </div>`,
+          desc: 'Load complete. All three goroutines get the config. The function ran <strong>exactly once</strong>. Any future calls to <code>once.Do()</code> return immediately — the func is never called again.'
+        },
+      ]
+    },
+    {
+      title: 'sync/atomic',
+      steps: [
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:16px;align-items:center;width:100%">
+            <div style="text-align:center;font-weight:600;color:var(--red)">Without atomic — race condition</div>
+            <div style="display:flex;gap:8px">
+              ${goroutine('G1', 'g-sender', 'read: 5')}
+              ${goroutine('G2', 'g-sender', 'read: 5')}
+            </div>
+            <div style="font-size:28px;font-weight:700;color:var(--text)">counter = 5</div>
+            <div style="display:flex;gap:8px">
+              ${goroutine('G1', 'g-blocked', 'write: 6')}
+              ${goroutine('G2', 'g-blocked', 'write: 6')}
+            </div>
+            <div style="font-size:28px;font-weight:700;color:var(--red)">counter = 6 ❌ (should be 7)</div>
+          </div>`,
+          desc: 'Without atomics: both goroutines read 5, both write 6. One increment is <strong>lost</strong>. This is the classic race condition.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:16px;align-items:center;width:100%">
+            <div style="text-align:center;font-weight:600;color:var(--green)">With atomic — safe</div>
+            <div style="display:flex;gap:8px">
+              ${goroutine('G1', 'g-main', 'AddInt64(&c, 1)')}
+              ${goroutine('G2', 'g-blocked', 'waiting...')}
+            </div>
+            <div style="font-size:28px;font-weight:700;color:var(--text)">counter = 6</div>
+            <div style="display:flex;gap:8px">
+              ${goroutine('G1', 'viz-done', 'done')}
+              ${goroutine('G2', 'g-main', 'AddInt64(&c, 1)')}
+            </div>
+            <div style="font-size:28px;font-weight:700;color:var(--green)">counter = 7 ✅</div>
+          </div>`,
+          desc: '<code>atomic.AddInt64</code> does read+increment+write as a <strong>single CPU instruction</strong>. No lock needed. Faster than mutex for simple counters.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:12px;align-items:center;width:100%">
+            <div style="text-align:center;font-weight:600;color:var(--accent)">When to use what?</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:500px">
+              <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px;text-align:center">
+                <div style="font-weight:600;color:var(--green)">atomic</div>
+                <div style="font-size:12px;color:var(--text-muted)">Simple counters, flags, single values</div>
+              </div>
+              <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px;text-align:center">
+                <div style="font-weight:600;color:var(--accent)">Mutex</div>
+                <div style="font-size:12px;color:var(--text-muted)">Multiple fields, maps, complex state</div>
+              </div>
+            </div>
+          </div>`,
+          desc: '<strong>Atomic</strong> for single values (counter++, flag toggle). <strong>Mutex</strong> when you need to protect multiple fields or complex data structures. Atomic is faster but limited.'
+        },
+      ]
+    },
+    {
+      title: 'sync.Map',
+      steps: [
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:16px;align-items:center;width:100%">
+            <div style="text-align:center;font-weight:600;color:var(--accent)">Regular map + Mutex</div>
+            <div style="display:flex;gap:8px">
+              ${goroutine('G1', 'g-main', 'mu.Lock()')}
+              ${goroutine('G2', 'g-blocked', 'mu.Lock() ⏳')}
+              ${goroutine('G3', 'g-blocked', 'mu.Lock() ⏳')}
+            </div>
+            <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px;text-align:center;width:200px">
+              <div style="font-weight:600">map[K]V</div>
+              <div style="font-size:12px;color:var(--text-muted)">type-safe, full control</div>
+            </div>
+          </div>`,
+          desc: 'Regular approach: protect a normal <code>map</code> with a Mutex. Type-safe, simple. One goroutine at a time (or use RWMutex for concurrent reads).'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:16px;align-items:center;width:100%">
+            <div style="text-align:center;font-weight:600;color:var(--green)">sync.Map — lock-free reads</div>
+            <div style="display:flex;gap:8px">
+              ${goroutine('G1', 'g-receiver', 'Load("a") ✅')}
+              ${goroutine('G2', 'g-receiver', 'Load("b") ✅')}
+              ${goroutine('G3', 'g-sender', 'Store("c") ✅')}
+            </div>
+            <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px;text-align:center;width:200px">
+              <div style="font-weight:600">sync.Map</div>
+              <div style="font-size:12px;color:var(--text-muted)">no explicit locking</div>
+            </div>
+          </div>`,
+          desc: '<code>sync.Map</code> handles locking internally. No <code>Lock()</code>/<code>Unlock()</code> needed. Different goroutines accessing <strong>different keys</strong> rarely block each other.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:12px;align-items:center;width:100%">
+            <div style="text-align:center;font-weight:600;color:var(--yellow)">Trade-offs</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:500px">
+              <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px">
+                <div style="font-weight:600;color:var(--green)">sync.Map ✅</div>
+                <div style="font-size:12px;color:var(--text-muted)">• Read-heavy, stable keys<br>• Different goroutines → different keys<br>• No explicit locking</div>
+              </div>
+              <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px">
+                <div style="font-weight:600;color:var(--red)">sync.Map ❌</div>
+                <div style="font-size:12px;color:var(--text-muted)">• No type safety (any)<br>• No Len() method<br>• Slower for write-heavy</div>
+              </div>
+            </div>
+          </div>`,
+          desc: 'Default to <code>RWMutex + map</code>. Only use <code>sync.Map</code> when profiling shows you need it, or when goroutines mostly touch different keys.'
+        },
+      ]
+    },
+    {
+      title: 'sync.Pool',
+      steps: [
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:16px;align-items:center;width:100%">
+            <div style="text-align:center;font-weight:600;color:var(--red)">Without Pool — allocate every time</div>
+            <div style="display:flex;gap:8px">
+              ${goroutine('Req 1', 'g-sender', 'new(Buffer)')}
+              ${goroutine('Req 2', 'g-sender', 'new(Buffer)')}
+              ${goroutine('Req 3', 'g-sender', 'new(Buffer)')}
+            </div>
+            <div style="font-size:13px;color:var(--text-muted)">🗑️ → GC → 🗑️ → GC → 🗑️ → GC</div>
+          </div>`,
+          desc: 'Without a pool: every request allocates a new buffer. When done, the garbage collector has to clean it up. High allocation rate = GC pressure = latency spikes.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:16px;align-items:center;width:100%">
+            <div style="text-align:center;font-weight:600;color:var(--green)">With Pool — reuse objects</div>
+            <div style="display:flex;gap:8px">
+              ${goroutine('Req 1', 'g-receiver', 'pool.Get()')}
+              <span class="viz-arrow active">&larr;</span>
+              <div class="viz-channel"><div class="viz-channel-pipe ch-has-data">Pool: [buf, buf, buf]</div><div class="viz-channel-label">sync.Pool</div></div>
+            </div>
+          </div>`,
+          desc: '<code>pool.Get()</code> returns a reused object if available. When done, <code>pool.Put(buf)</code> returns it for someone else to use. Less allocation, less GC.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:16px;align-items:center;width:100%">
+            <div style="display:flex;gap:8px">
+              ${goroutine('Req 1', 'g-sender', 'pool.Put(buf)')}
+              <span class="viz-arrow active">&rarr;</span>
+              <div class="viz-channel"><div class="viz-channel-pipe ch-has-data">Pool: [buf]</div><div class="viz-channel-label">sync.Pool</div></div>
+              <span class="viz-arrow active">&larr;</span>
+              ${goroutine('Req 2', 'g-receiver', 'pool.Get()')}
+            </div>
+            <div style="font-size:13px;color:var(--text-muted)">Same buffer, zero allocation</div>
+          </div>`,
+          desc: 'Req 1 puts buffer back. Req 2 gets the same buffer. <strong>Zero allocation.</strong> The pool\'s <code>New</code> function only runs when the pool is empty. Note: GC can clear the pool at any time — don\'t rely on items persisting.'
+        },
+      ]
+    },
+  ],
 };
 
 function renderVizSelector() {
