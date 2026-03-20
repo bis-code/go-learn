@@ -922,6 +922,191 @@ const topicVisualizations = {
       ]
     },
   ],
+  'Context Package': [
+    {
+      title: 'Context Tree',
+      steps: [
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:16px;align-items:center;width:100%">
+            <div class="viz-channel"><div class="viz-channel-pipe ch-has-data">context.Background()</div><div class="viz-channel-label">root — never cancelled</div></div>
+            <span class="viz-arrow active">&darr;</span>
+            <div style="display:flex;gap:24px">
+              <div class="viz-channel"><div class="viz-channel-pipe ch-empty">WithCancel</div><div class="viz-channel-label">manual cancel</div></div>
+              <div class="viz-channel"><div class="viz-channel-pipe ch-empty">WithTimeout</div><div class="viz-channel-label">auto cancel</div></div>
+              <div class="viz-channel"><div class="viz-channel-pipe ch-empty">WithValue</div><div class="viz-channel-label">carries data</div></div>
+            </div>
+          </div>`,
+          desc: 'Every context starts from <code>context.Background()</code>. You derive child contexts with <code>WithCancel</code>, <code>WithTimeout</code>, or <code>WithValue</code>. <strong>Cancelling a parent cancels all children.</strong>'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:16px;align-items:center;width:100%">
+            <div class="viz-channel"><div class="viz-channel-pipe ch-has-data">Background()</div><div class="viz-channel-label">root</div></div>
+            <span class="viz-arrow active">&darr;</span>
+            <div class="viz-channel"><div class="viz-channel-pipe ch-has-data">WithTimeout(2s)</div><div class="viz-channel-label">HTTP handler</div></div>
+            <span class="viz-arrow active">&darr;</span>
+            <div style="display:flex;gap:24px">
+              <div class="viz-channel"><div class="viz-channel-pipe ch-has-data">WithValue(reqID)</div><div class="viz-channel-label">service layer</div></div>
+              <div class="viz-channel"><div class="viz-channel-pipe ch-empty">WithCancel</div><div class="viz-channel-label">background job</div></div>
+            </div>
+          </div>`,
+          desc: 'Real-world pattern: HTTP handler sets a timeout, adds request metadata via WithValue, then passes context down to service and repository layers. Each layer checks <code>ctx.Done()</code> before doing work.'
+        },
+      ]
+    },
+    {
+      title: 'WithCancel',
+      steps: [
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:16px;align-items:center;width:100%">
+            <div style="display:flex;gap:8px">
+              ${goroutine('W1', 'g-sender', 'working...')}
+              ${goroutine('W2', 'g-sender', 'working...')}
+              ${goroutine('W3', 'g-sender', 'working...')}
+            </div>
+            <div class="viz-channel"><div class="viz-channel-pipe ch-empty">ctx.Done() — open</div><div class="viz-channel-label">not cancelled</div></div>
+            ${goroutine('main', 'g-main', 'cancel() not called yet')}
+          </div>`,
+          desc: 'Three workers loop, checking <code>ctx.Done()</code> each iteration. The channel is open (not cancelled), so <code>select</code> skips it and workers continue.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:16px;align-items:center;width:100%">
+            <div style="display:flex;gap:8px">
+              ${goroutine('W1', 'g-blocked', 'ctx.Done()!')}
+              ${goroutine('W2', 'g-blocked', 'ctx.Done()!')}
+              ${goroutine('W3', 'g-blocked', 'ctx.Done()!')}
+            </div>
+            <div class="viz-channel"><div class="viz-channel-pipe ch-full">ctx.Done() — CLOSED</div><div class="viz-channel-label">cancelled!</div></div>
+            ${goroutine('main', 'g-main', 'cancel() called')}
+          </div>`,
+          desc: 'Main calls <code>cancel()</code>. The Done channel <strong>closes</strong> — all workers receive on it simultaneously. They exit their loops.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:16px;align-items:center;width:100%">
+            <div style="display:flex;gap:8px">
+              ${goroutine('W1', 'viz-done', 'stopped')}
+              ${goroutine('W2', 'viz-done', 'stopped')}
+              ${goroutine('W3', 'viz-done', 'stopped')}
+            </div>
+            <div class="viz-channel"><div class="viz-channel-pipe ch-closed">ctx.Done() — CLOSED</div><div class="viz-channel-label">ctx.Err() = context.Canceled</div></div>
+            ${goroutine('main', 'g-receiver', 'wg.Wait() done ✅')}
+          </div>`,
+          desc: 'All workers stopped cleanly. <code>ctx.Err()</code> returns <code>context.Canceled</code>. <strong>Key insight:</strong> closing a channel broadcasts to ALL receivers — that\'s how one cancel stops many goroutines.'
+        },
+      ]
+    },
+    {
+      title: 'WithTimeout',
+      steps: [
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:16px;align-items:center;width:100%">
+            ${goroutine('main', 'g-main', 'WithTimeout(300ms)')}
+            <span class="viz-arrow active">&darr;</span>
+            ${goroutine('fetchData', 'g-sender', 'working...<br><small>random 100-500ms</small>')}
+            <div style="display:flex;gap:24px;margin-top:8px">
+              <div style="background:var(--bg-tertiary);padding:8px 16px;border-radius:8px;text-align:center">
+                <div style="font-size:24px">⏱️</div>
+                <div style="font-size:12px;color:var(--text-muted)">300ms deadline</div>
+              </div>
+            </div>
+          </div>`,
+          desc: '<code>WithTimeout(300ms)</code> creates a context that auto-cancels after 300ms. The fetch function races against the clock.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:16px;align-items:center;width:100%">
+            <div style="display:flex;gap:48px">
+              <div style="text-align:center">
+                <div style="font-weight:600;color:var(--green)">Fast (200ms)</div>
+                ${goroutine('fetch', 'g-receiver', 'result ✅')}
+                <div style="font-size:12px;color:var(--text-muted);margin-top:4px">finished before deadline</div>
+              </div>
+              <div style="text-align:center">
+                <div style="font-weight:600;color:var(--red)">Slow (450ms)</div>
+                ${goroutine('fetch', 'g-blocked', 'TIMEOUT ❌')}
+                <div style="font-size:12px;color:var(--text-muted);margin-top:4px">ctx.Done() fired at 300ms</div>
+              </div>
+            </div>
+          </div>`,
+          desc: 'Two scenarios: if fetch finishes in 200ms → success. If it takes 450ms → context times out at 300ms, <code>ctx.Err()</code> returns <code>context.DeadlineExceeded</code>.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:12px;align-items:center;width:100%">
+            <div style="text-align:center;font-weight:600;color:var(--yellow)">Always call cancel()!</div>
+            <div style="background:var(--bg-tertiary);padding:16px;border-radius:8px;width:100%;max-width:400px">
+              <code style="font-size:13px;color:var(--text)">ctx, cancel := context.WithTimeout(...)<br>defer cancel() // ← ALWAYS, even if timeout fires</code>
+            </div>
+            <div style="font-size:12px;color:var(--text-muted)">cancel() releases resources. Not calling it leaks a timer goroutine until timeout fires.</div>
+          </div>`,
+          desc: '<strong>Always defer cancel()</strong> — even if the timeout fires automatically. Without it, Go keeps a timer goroutine alive until the timeout expires. The linter will warn you about this.'
+        },
+      ]
+    },
+    {
+      title: 'WithValue',
+      steps: [
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:12px;align-items:center;width:100%">
+            <div class="viz-channel"><div class="viz-channel-pipe ch-has-data">Background()</div><div class="viz-channel-label">empty context</div></div>
+            <span class="viz-arrow active">&darr; WithValue(reqIDKey, "abc-123")</span>
+            <div class="viz-channel"><div class="viz-channel-pipe ch-has-data">ctx + reqID</div><div class="viz-channel-label">reqID = "abc-123"</div></div>
+            <span class="viz-arrow active">&darr; WithValue(userIDKey, 42)</span>
+            <div class="viz-channel"><div class="viz-channel-pipe ch-has-data">ctx + reqID + userID</div><div class="viz-channel-label">userID = 42</div></div>
+          </div>`,
+          desc: 'Each <code>WithValue</code> wraps the parent context, adding one key-value pair. Values are inherited — the bottom context has both reqID and userID.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:12px;align-items:center;width:100%">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:500px">
+              <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px">
+                <div style="font-weight:600;color:var(--green)">✅ Use for</div>
+                <div style="font-size:12px;color:var(--text-muted)">• Request IDs<br>• User/auth info<br>• Trace/span IDs<br>• Request-scoped metadata</div>
+              </div>
+              <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px">
+                <div style="font-weight:600;color:var(--red)">❌ Don't use for</div>
+                <div style="font-size:12px;color:var(--text-muted)">• Function parameters<br>• Config values<br>• Database connections<br>• Anything not request-scoped</div>
+              </div>
+            </div>
+          </div>`,
+          desc: '<code>WithValue</code> is for <strong>request-scoped metadata</strong> that crosses API boundaries. If you\'re passing function arguments — use actual parameters instead. Rule: if it affects correctness, it\'s a parameter, not a context value.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:12px;align-items:center;width:100%">
+            <div style="text-align:center;font-weight:600;color:var(--accent)">Use custom key types!</div>
+            <div style="background:var(--bg-tertiary);padding:16px;border-radius:8px;width:100%;max-width:450px">
+              <code style="font-size:12px;color:var(--red)">// ❌ string keys can collide<br>ctx = context.WithValue(ctx, "userID", 42)</code>
+              <br><br>
+              <code style="font-size:12px;color:var(--green)">// ✅ unexported type — impossible to collide<br>type userIDKey struct{}<br>ctx = context.WithValue(ctx, userIDKey{}, 42)</code>
+            </div>
+          </div>`,
+          desc: 'Always use <strong>unexported custom types</strong> as keys. String keys like <code>"userID"</code> can collide with other packages using the same string. An unexported struct type is unique to your package.'
+        },
+      ]
+    },
+    {
+      title: 'Propagation Pattern',
+      steps: [
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:12px;align-items:center;width:100%">
+            ${goroutine('Handler', 'g-main', 'ctx = WithTimeout<br>ctx = WithValue(reqID)')}
+            <span class="viz-arrow active">&darr; passes ctx</span>
+            ${goroutine('Service', 'g-sender', 'if ctx.Err() != nil → bail<br>business logic')}
+            <span class="viz-arrow active">&darr; passes ctx</span>
+            ${goroutine('Repository', 'g-receiver', 'if ctx.Err() != nil → bail<br>db.QueryContext(ctx, ...)')}
+          </div>`,
+          desc: 'Context flows top-down through layers. Each layer receives <code>ctx</code> as its <strong>first parameter</strong> (Go convention). Each layer checks <code>ctx.Err()</code> before doing expensive work.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:12px;align-items:center;width:100%">
+            ${goroutine('Handler', 'g-main', '⏱️ timeout fires!')}
+            <span class="viz-arrow active">&darr; ctx.Done() closes</span>
+            ${goroutine('Service', 'g-blocked', 'ctx.Err() ≠ nil → returns error')}
+            <span class="viz-arrow active">&darr; never called</span>
+            ${goroutine('Repository', 'viz-done', 'skipped entirely')}
+          </div>`,
+          desc: 'If the handler\'s timeout fires, the service layer sees <code>ctx.Err() != nil</code> and returns immediately. The repository is never called. <strong>Cancellation cascades down automatically.</strong>'
+        },
+      ]
+    },
+  ],
 };
 
 function renderVizSelector() {
