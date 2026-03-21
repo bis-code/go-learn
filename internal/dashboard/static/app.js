@@ -1107,6 +1107,237 @@ const topicVisualizations = {
       ]
     },
   ],
+  'Concurrency Patterns': [
+    {
+      title: 'Pipeline',
+      steps: [
+        {
+          canvas: () => `<div style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap">
+            ${goroutine('generate', 'g-sender', '1, 2, 3, 4, 5')}
+            ${arrow(true)}
+            ${channel('ch1', 'ch-has-data', '<span class="viz-data">1</span>')}
+            ${arrow(true)}
+            ${goroutine('square', 'g-main', 'n * n')}
+            ${arrow(true)}
+            ${channel('ch2', 'ch-has-data', '<span class="viz-data">1</span>')}
+            ${arrow(true)}
+            ${goroutine('consumer', 'g-receiver', 'print')}
+          </div>`,
+          desc: 'Pipeline: chain of stages connected by channels. Each stage runs as a goroutine. Data flows left to right. All stages run <strong>concurrently</strong> — while square processes 1, generate is already sending 2.'
+        },
+        {
+          canvas: () => `<div style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap">
+            ${goroutine('generate', 'g-sender', '3, 4, 5')}
+            ${arrow(true)}
+            ${channel('ch1', 'ch-has-data', '<span class="viz-data">2</span>')}
+            ${arrow(true)}
+            ${goroutine('square', 'g-main', '1→1')}
+            ${arrow(true)}
+            ${channel('ch2', 'ch-has-data', '<span class="viz-data">1</span>')}
+            ${arrow(true)}
+            ${goroutine('consumer', 'g-receiver', 'print(1)')}
+          </div>`,
+          desc: 'Streaming, not batching. Generate sends 2 while square processes 1 while consumer prints. Total time ≈ slowest stage, not sum of all stages.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:16px;align-items:center;width:100%">
+            <div style="text-align:center;font-weight:600;color:var(--yellow)">Without ctx.Done() — goroutine leak!</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              ${goroutine('generate', 'g-blocked', 'out &lt;- 3<br><small>BLOCKED</small>')}
+              ${arrow(false)}
+              ${channel('ch', 'ch-full', 'stuck')}
+              ${arrow(false)}
+              ${goroutine('consumer', 'viz-done', 'returned early')}
+            </div>
+            <div style="font-size:12px;color:var(--text-muted)">Consumer stopped reading → sender blocked forever</div>
+          </div>`,
+          desc: 'If the consumer stops reading, senders block forever on <code>out &lt;- value</code>. Fix: wrap sends in <code>select</code> with <code>ctx.Done()</code> so goroutines can exit cleanly.'
+        },
+      ]
+    },
+    {
+      title: 'Fan-out / Fan-in',
+      steps: [
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:16px;align-items:center;width:100%">
+            <div style="text-align:center;font-weight:600;color:var(--accent)">Fan-out: one channel → many workers</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              ${goroutine('gen', 'g-sender', '1..10')}
+              ${arrow(true)}
+              ${channel('input', 'ch-has-data', 'shared')}
+            </div>
+            <div style="display:flex;gap:8px">
+              <span class="viz-arrow active">&darr;</span>
+              <span class="viz-arrow active">&darr;</span>
+              <span class="viz-arrow active">&darr;</span>
+            </div>
+            <div style="display:flex;gap:8px">
+              ${goroutine('W1', 'g-main', 'square')}
+              ${goroutine('W2', 'g-main', 'square')}
+              ${goroutine('W3', 'g-main', 'square')}
+            </div>
+          </div>`,
+          desc: '<strong>Fan-out:</strong> multiple goroutines read from the same channel. Go ensures each value goes to exactly one worker. Work is split automatically.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:16px;align-items:center;width:100%">
+            <div style="text-align:center;font-weight:600;color:var(--green)">Fan-in: many channels → one</div>
+            <div style="display:flex;gap:8px">
+              ${goroutine('W1', 'g-main', '→ 1, 16')}
+              ${goroutine('W2', 'g-main', '→ 4, 25')}
+              ${goroutine('W3', 'g-main', '→ 9, 36')}
+            </div>
+            <div style="display:flex;gap:8px">
+              <span class="viz-arrow active">&darr;</span>
+              <span class="viz-arrow active">&darr;</span>
+              <span class="viz-arrow active">&darr;</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              ${channel('merged', 'ch-has-data', 'all results')}
+              ${arrow(true)}
+              ${goroutine('consumer', 'g-receiver', 'range merged')}
+            </div>
+          </div>`,
+          desc: '<strong>Fan-in:</strong> merge() combines multiple output channels into one. One goroutine per input, WaitGroup to track completion, closer goroutine to close output when all done.'
+        },
+      ]
+    },
+    {
+      title: 'Worker Pool',
+      steps: [
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:16px;align-items:center;width:100%">
+            <div style="display:flex;align-items:center;gap:8px">
+              ${goroutine('producer', 'g-sender', 'Job{1} Job{2} ...')}
+              ${arrow(true)}
+              ${channel('jobs', 'ch-has-data', 'job queue')}
+            </div>
+            <div style="display:flex;gap:8px">
+              <span class="viz-arrow active">&darr;</span>
+              <span class="viz-arrow active">&darr;</span>
+              <span class="viz-arrow active">&darr;</span>
+            </div>
+            <div style="display:flex;gap:8px">
+              ${goroutine('W1', 'g-main', 'process')}
+              ${goroutine('W2', 'g-main', 'process')}
+              ${goroutine('W3', 'g-main', 'process')}
+            </div>
+            <div style="display:flex;gap:8px">
+              <span class="viz-arrow active">&darr;</span>
+              <span class="viz-arrow active">&darr;</span>
+              <span class="viz-arrow active">&darr;</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              ${channel('results', 'ch-has-data', 'Result{}')}
+              ${arrow(true)}
+              ${goroutine('consumer', 'g-receiver', 'range results')}
+            </div>
+          </div>`,
+          desc: 'Worker pool: N workers read jobs from a shared channel, process them, send results. Same as fan-out + fan-in but with structured Job/Result types. WaitGroup + closer goroutine manage the results channel.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:12px;align-items:center;width:100%">
+            <div style="text-align:center;font-weight:600;color:var(--accent)">Worker Pool anatomy</div>
+            <div style="background:var(--bg-tertiary);padding:16px;border-radius:8px;width:100%;max-width:450px;font-size:12px">
+              <code>wg.Add(numWorkers)<br>
+for i := 0; i &lt; numWorkers; i++ {<br>
+&nbsp;&nbsp;go func() {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;defer wg.Done()<br>
+&nbsp;&nbsp;&nbsp;&nbsp;for job := range jobs {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;select {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case results &lt;- process(job):<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case &lt;-ctx.Done(): return<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+&nbsp;&nbsp;}()<br>
+}<br>
+go func() { wg.Wait(); close(results) }()</code>
+            </div>
+          </div>`,
+          desc: 'The pattern: Add(N) workers, each reads from jobs channel, sends results with select + ctx.Done(), defer wg.Done(). Closer goroutine waits for all workers, then closes results.'
+        },
+      ]
+    },
+    {
+      title: 'errgroup',
+      steps: [
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:16px;align-items:center;width:100%">
+            <div style="text-align:center;font-weight:600;color:var(--accent)">Parallel fetch — all succeed</div>
+            <div style="display:flex;gap:8px">
+              ${goroutine('users', 'g-receiver', 'fetchUsers ✅')}
+              ${goroutine('products', 'g-receiver', 'fetchProducts ✅')}
+              ${goroutine('orders', 'g-receiver', 'fetchOrders ✅')}
+            </div>
+            <span class="viz-arrow active">&darr;</span>
+            ${goroutine('g.Wait()', 'g-main', 'err = nil ✅')}
+          </div>`,
+          desc: '<code>errgroup</code> runs goroutines in parallel and waits for all. If all succeed, <code>g.Wait()</code> returns nil.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:16px;align-items:center;width:100%">
+            <div style="text-align:center;font-weight:600;color:var(--red)">One fails — all cancelled</div>
+            <div style="display:flex;gap:8px">
+              ${goroutine('users', 'g-receiver', 'fetchUsers ✅')}
+              ${goroutine('products', 'g-blocked', 'fetchProducts ❌')}
+              ${goroutine('orders', 'g-blocked', 'ctx cancelled ⏹')}
+            </div>
+            <span class="viz-arrow active">&darr;</span>
+            ${goroutine('g.Wait()', 'g-main', 'err = "products failed"')}
+          </div>`,
+          desc: 'If any goroutine returns an error, the context is cancelled — other goroutines see <code>ctx.Done()</code> and stop. <code>g.Wait()</code> returns the <strong>first</strong> error. Cleaner than WaitGroup + manual error handling.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:12px;align-items:center;width:100%">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:500px">
+              <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px">
+                <div style="font-weight:600;color:var(--accent)">errgroup</div>
+                <div style="font-size:12px;color:var(--text-muted)">• Parallel independent tasks<br>• First error cancels all<br>• Built-in context cancel<br>• Common in backends</div>
+              </div>
+              <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px">
+                <div style="font-weight:600;color:var(--text-muted)">WaitGroup</div>
+                <div style="font-size:12px;color:var(--text-muted)">• No error handling<br>• No cancellation<br>• Manual everything<br>• Lower level</div>
+              </div>
+            </div>
+          </div>`,
+          desc: 'Use <code>errgroup</code> over <code>WaitGroup</code> when you need error handling and cancellation. It\'s the standard choice for parallel fetches in Go backends.'
+        },
+      ]
+    },
+    {
+      title: 'Rate Limiting',
+      steps: [
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:16px;align-items:center;width:100%">
+            <div style="text-align:center;font-weight:600;color:var(--red)">Without rate limiting</div>
+            <div style="display:flex;gap:4px">
+              ${goroutine('', 'g-sender', 'e1')}
+              ${goroutine('', 'g-sender', 'e2')}
+              ${goroutine('', 'g-sender', 'e3')}
+              ${goroutine('', 'g-sender', 'e4')}
+              ${goroutine('', 'g-sender', 'e5')}
+            </div>
+            <div style="font-size:13px;color:var(--red)">All at once — server overwhelmed</div>
+          </div>`,
+          desc: 'Without rate limiting, all events fire immediately. This can overwhelm downstream services, APIs, or databases.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:16px;align-items:center;width:100%">
+            <div style="text-align:center;font-weight:600;color:var(--green)">With rate limiting (5/sec)</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              ${goroutine('events', 'g-sender', 'e1 e2 e3...')}
+              ${arrow(true)}
+              <div class="viz-channel"><div class="viz-channel-pipe ch-has-data">⏱ Ticker 200ms</div><div class="viz-channel-label">time.Ticker</div></div>
+              ${arrow(true)}
+              ${goroutine('output', 'g-receiver', 'e1...e2...e3')}
+            </div>
+            <div style="font-size:13px;color:var(--green)">Evenly spaced — 200ms apart (5 per second)</div>
+          </div>`,
+          desc: '<code>time.NewTicker(200ms)</code> fires every 200ms. The rate limiter waits for a tick before forwarding each event. 5 ticks per second = 5 events per second.'
+        },
+      ]
+    },
+  ],
 };
 
 function renderVizSelector() {
