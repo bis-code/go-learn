@@ -1338,6 +1338,147 @@ go func() { wg.Wait(); close(results) }()</code>
       ]
     },
   ],
+  'Standard Library Deep Dive': [
+    {
+      title: 'slog — Structured Logging',
+      steps: [
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:12px;align-items:center;width:100%">
+            <div style="text-align:center;font-weight:600;color:var(--red)">❌ fmt.Printf / log.Println</div>
+            <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px;width:100%;max-width:450px">
+              <code style="font-size:12px;color:var(--text-muted)">2026/03/21 user alice logged in from 192.168.1.1</code>
+            </div>
+            <div style="text-align:center;font-weight:600;color:var(--green);margin-top:8px">✅ slog — structured</div>
+            <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px;width:100%;max-width:450px">
+              <code style="font-size:12px;color:var(--green)">{"time":"...","level":"INFO","msg":"login","user":"alice","ip":"192.168.1.1"}</code>
+            </div>
+          </div>`,
+          desc: 'Unstructured logs are hard to search and parse. <code>slog</code> outputs JSON or text with typed key-value pairs — searchable, filterable, machine-readable.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:12px;align-items:center;width:100%">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:500px">
+              <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px">
+                <div style="font-weight:600;color:var(--accent)">Levels</div>
+                <div style="font-size:12px;color:var(--text-muted)">Debug → Info → Warn → Error<br>Set min level to filter noise</div>
+              </div>
+              <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px">
+                <div style="font-weight:600;color:var(--accent)">Handlers</div>
+                <div style="font-size:12px;color:var(--text-muted)">TextHandler → human-readable<br>JSONHandler → machine-readable</div>
+              </div>
+              <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px">
+                <div style="font-weight:600;color:var(--accent)">slog.With()</div>
+                <div style="font-size:12px;color:var(--text-muted)">Add default attrs to every log<br>e.g. "service", "api"</div>
+              </div>
+              <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px">
+                <div style="font-weight:600;color:var(--accent)">Groups</div>
+                <div style="font-size:12px;color:var(--text-muted)">Nest attrs: slog.Group("req",<br>"method","GET","path","/")</div>
+              </div>
+            </div>
+          </div>`,
+          desc: '<code>slog</code> is Go\'s built-in structured logger (since Go 1.21). It replaces <code>log</code> for production use. Key features: levels, handlers, default attributes, and groups.'
+        },
+      ]
+    },
+    {
+      title: 'go:embed',
+      steps: [
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:16px;align-items:center;width:100%">
+            <div style="text-align:center;font-weight:600;color:var(--accent)">Compile time</div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <div style="background:var(--bg-tertiary);padding:8px 12px;border-radius:8px;font-size:12px">schema.sql</div>
+              <div style="background:var(--bg-tertiary);padding:8px 12px;border-radius:8px;font-size:12px">logo.png</div>
+              <div style="background:var(--bg-tertiary);padding:8px 12px;border-radius:8px;font-size:12px">index.html</div>
+            </div>
+            <span class="viz-arrow active">&darr; go build</span>
+            <div class="viz-channel"><div class="viz-channel-pipe ch-has-data">single binary</div><div class="viz-channel-label">files baked in</div></div>
+          </div>`,
+          desc: '<code>//go:embed</code> bakes files into the binary at compile time. No external files needed at runtime — deploy a single binary with everything included.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:12px;align-items:center;width:100%">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;width:100%;max-width:500px">
+              <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px;text-align:center">
+                <div style="font-weight:600;color:var(--green)">string</div>
+                <div style="font-size:11px;color:var(--text-muted)">single text file</div>
+                <code style="font-size:10px">//go:embed f.txt<br>var s string</code>
+              </div>
+              <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px;text-align:center">
+                <div style="font-weight:600;color:var(--accent)">[]byte</div>
+                <div style="font-size:11px;color:var(--text-muted)">single binary file</div>
+                <code style="font-size:10px">//go:embed img.png<br>var b []byte</code>
+              </div>
+              <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px;text-align:center">
+                <div style="font-weight:600;color:var(--yellow)">embed.FS</div>
+                <div style="font-size:11px;color:var(--text-muted)">multiple files/dirs</div>
+                <code style="font-size:10px">//go:embed static/*<br>var fs embed.FS</code>
+              </div>
+            </div>
+          </div>`,
+          desc: 'Three variable types: <code>string</code> for text, <code>[]byte</code> for binary, <code>embed.FS</code> for directories. This project uses <code>embed.FS</code> for the entire dashboard (HTML + CSS + JS).'
+        },
+      ]
+    },
+    {
+      title: 'io — Reader/Writer',
+      steps: [
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:16px;align-items:center;width:100%">
+            <div style="text-align:center;font-weight:600;color:var(--accent)">io.Reader — the universal input</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+              <div style="background:var(--bg-tertiary);padding:6px 12px;border-radius:8px;font-size:12px">os.File</div>
+              <div style="background:var(--bg-tertiary);padding:6px 12px;border-radius:8px;font-size:12px">http.Response.Body</div>
+              <div style="background:var(--bg-tertiary);padding:6px 12px;border-radius:8px;font-size:12px">strings.Reader</div>
+              <div style="background:var(--bg-tertiary);padding:6px 12px;border-radius:8px;font-size:12px">bytes.Buffer</div>
+              <div style="background:var(--bg-tertiary);padding:6px 12px;border-radius:8px;font-size:12px">gzip.Reader</div>
+            </div>
+            <span class="viz-arrow active">&darr; Read(p []byte) (n int, err error)</span>
+            <div style="background:var(--bg-tertiary);padding:8px 16px;border-radius:8px;font-size:12px">your function(r io.Reader)</div>
+          </div>`,
+          desc: '<code>io.Reader</code> is one method: <code>Read(p []byte) (n int, err error)</code>. Files, HTTP bodies, strings, compressed streams — all implement it. Write your function once, it works with any source.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:16px;align-items:center;width:100%">
+            <div style="text-align:center;font-weight:600;color:var(--green)">Composition — chain them</div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center">
+              ${goroutine('file', 'g-sender', 'io.Reader')}
+              ${arrow(true)}
+              ${goroutine('gzip', 'g-main', 'decompress')}
+              ${arrow(true)}
+              ${goroutine('bufio', 'g-main', 'buffer')}
+              ${arrow(true)}
+              ${goroutine('scanner', 'g-receiver', 'line by line')}
+            </div>
+          </div>`,
+          desc: 'Readers wrap readers: <code>bufio.NewReader(gzip.NewReader(file))</code>. Each adds a layer — decompression, buffering, scanning. Like Unix pipes but in Go.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:12px;align-items:center;width:100%">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:450px">
+              <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px;text-align:center">
+                <div style="font-weight:600;color:var(--accent)">io.Copy</div>
+                <div style="font-size:11px;color:var(--text-muted)">Reader → Writer<br>efficient streaming</div>
+              </div>
+              <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px;text-align:center">
+                <div style="font-weight:600;color:var(--accent)">io.MultiReader</div>
+                <div style="font-size:11px;color:var(--text-muted)">combine N readers<br>into one stream</div>
+              </div>
+              <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px;text-align:center">
+                <div style="font-weight:600;color:var(--accent)">io.MultiWriter</div>
+                <div style="font-size:11px;color:var(--text-muted)">write once<br>goes to N writers</div>
+              </div>
+              <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px;text-align:center">
+                <div style="font-weight:600;color:var(--accent)">io.TeeReader</div>
+                <div style="font-size:11px;color:var(--text-muted)">read + copy to<br>a writer (like tee)</div>
+              </div>
+            </div>
+          </div>`,
+          desc: 'The <code>io</code> package provides building blocks for composing streams. Write functions that accept <code>io.Reader</code>/<code>io.Writer</code> — they work with files, networks, buffers, anything.'
+        },
+      ]
+    },
+  ],
 };
 
 function renderVizSelector() {
