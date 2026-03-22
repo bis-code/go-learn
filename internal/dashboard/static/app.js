@@ -1676,6 +1676,134 @@ BenchmarkSquare-8&nbsp;&nbsp;500000000&nbsp;&nbsp;2.34 ns/op</code>
       ]
     },
   ],
+  'Phase 1 Project': [
+    {
+      title: 'goscan — Architecture',
+      steps: [
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:12px;align-items:center;width:100%">
+            <div style="text-align:center;font-weight:600;color:var(--accent);font-size:16px">goscan — Concurrent Site Health Checker</div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center">
+              ${goroutine('input', 'g-sender', 'urls.txt<br>or stdin')}
+              ${arrow(true)}
+              ${channel('jobs', 'ch-has-data', 'URL queue')}
+              ${arrow(true)}
+              <div style="display:flex;flex-direction:column;gap:4px">
+                ${goroutine('W1', 'g-main', 'check')}
+                ${goroutine('W2', 'g-main', 'check')}
+                ${goroutine('W3', 'g-main', 'check')}
+              </div>
+              ${arrow(true)}
+              ${channel('results', 'ch-has-data', 'Result')}
+              ${arrow(true)}
+              ${goroutine('output', 'g-receiver', 'table/JSON')}
+            </div>
+          </div>`,
+          desc: 'Architecture: read URLs → fan-out to worker pool → fan-in results → format output. Worker pool pattern with rate limiting and per-request timeouts.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:12px;align-items:center;width:100%">
+            <div style="text-align:center;font-weight:600;color:var(--accent)">Phase 1 Topics Applied</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;max-width:500px">
+              <div style="background:var(--bg-tertiary);padding:8px 12px;border-radius:8px;font-size:11px">
+                <strong style="color:var(--green)">Error Handling</strong><br>Custom errors, wrapping, sentinels
+              </div>
+              <div style="background:var(--bg-tertiary);padding:8px 12px;border-radius:8px;font-size:11px">
+                <strong style="color:var(--green)">Generics</strong><br>Result[T] type
+              </div>
+              <div style="background:var(--bg-tertiary);padding:8px 12px;border-radius:8px;font-size:11px">
+                <strong style="color:var(--green)">Goroutines</strong><br>Worker pool
+              </div>
+              <div style="background:var(--bg-tertiary);padding:8px 12px;border-radius:8px;font-size:11px">
+                <strong style="color:var(--green)">Sync</strong><br>sync.Map cache, atomic stats
+              </div>
+              <div style="background:var(--bg-tertiary);padding:8px 12px;border-radius:8px;font-size:11px">
+                <strong style="color:var(--green)">Context</strong><br>Timeouts, Ctrl+C shutdown
+              </div>
+              <div style="background:var(--bg-tertiary);padding:8px 12px;border-radius:8px;font-size:11px">
+                <strong style="color:var(--green)">Patterns</strong><br>Fan-out/in, rate limiting
+              </div>
+              <div style="background:var(--bg-tertiary);padding:8px 12px;border-radius:8px;font-size:11px">
+                <strong style="color:var(--green)">Stdlib</strong><br>slog, flag, bufio, io
+              </div>
+              <div style="background:var(--bg-tertiary);padding:8px 12px;border-radius:8px;font-size:11px">
+                <strong style="color:var(--green)">Testing</strong><br>Table tests, benchmarks, fuzz
+              </div>
+            </div>
+          </div>`,
+          desc: 'Every Phase 1 topic has a home in this project. The goal is to combine them into a real, useful tool — not just isolated exercises.'
+        },
+      ]
+    },
+    {
+      title: 'goscan — Features',
+      steps: [
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:12px;align-items:center;width:100%">
+            <div style="background:var(--bg-tertiary);padding:16px;border-radius:8px;width:100%;max-width:500px;font-size:12px">
+              <code style="color:var(--text)">$ goscan -file urls.txt -workers=10 -timeout=3s -format=table<br><br>
+URL&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;STATUS&nbsp;&nbsp;TIME&nbsp;&nbsp;&nbsp;&nbsp;ERROR<br>
+https://go.dev&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;200&nbsp;&nbsp;&nbsp;&nbsp;145ms&nbsp;&nbsp;&nbsp;-<br>
+https://example.com&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;200&nbsp;&nbsp;&nbsp;&nbsp;89ms&nbsp;&nbsp;&nbsp;&nbsp;-<br>
+https://doesnotexist.xyz&nbsp;&nbsp;&nbsp;&nbsp;-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DNS lookup failed<br>
+https://slow-site.com&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;timeout after 3s<br><br>
+Summary: 2 OK, 1 failed, 1 timeout (total: 437ms)</code>
+            </div>
+          </div>`,
+          desc: 'Table output format. Also supports <code>-format=json</code> for structured output. Pipe-friendly: <code>cat urls.txt | goscan</code>.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:8px;align-items:center;width:100%">
+            <div style="text-align:center;font-weight:600;color:var(--accent)">CLI Flags</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;max-width:500px">
+              <div style="background:var(--bg-tertiary);padding:8px 12px;border-radius:8px;font-size:11px">
+                <code>-file</code> <span style="color:var(--text-muted)">URL file path</span>
+              </div>
+              <div style="background:var(--bg-tertiary);padding:8px 12px;border-radius:8px;font-size:11px">
+                <code>-workers</code> <span style="color:var(--text-muted)">concurrency (default: 10)</span>
+              </div>
+              <div style="background:var(--bg-tertiary);padding:8px 12px;border-radius:8px;font-size:11px">
+                <code>-rate</code> <span style="color:var(--text-muted)">max req/sec (default: 5)</span>
+              </div>
+              <div style="background:var(--bg-tertiary);padding:8px 12px;border-radius:8px;font-size:11px">
+                <code>-timeout</code> <span style="color:var(--text-muted)">per request (default: 5s)</span>
+              </div>
+              <div style="background:var(--bg-tertiary);padding:8px 12px;border-radius:8px;font-size:11px">
+                <code>-deadline</code> <span style="color:var(--text-muted)">overall (default: 30s)</span>
+              </div>
+              <div style="background:var(--bg-tertiary);padding:8px 12px;border-radius:8px;font-size:11px">
+                <code>-format</code> <span style="color:var(--text-muted)">json | table</span>
+              </div>
+              <div style="background:var(--bg-tertiary);padding:8px 12px;border-radius:8px;font-size:11px">
+                <code>-verbose</code> <span style="color:var(--text-muted)">debug logging</span>
+              </div>
+            </div>
+          </div>`,
+          desc: 'All flags parsed with <code>flag</code> package. Graceful shutdown with Ctrl+C (signal handling + context cancellation).'
+        },
+      ]
+    },
+    {
+      title: 'goscan — File Structure',
+      steps: [
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:8px;align-items:center;width:100%">
+            <div style="background:var(--bg-tertiary);padding:16px;border-radius:8px;width:100%;max-width:400px;font-size:12px">
+              <div style="font-weight:600;margin-bottom:8px">exercises/09-phase1-project/</div>
+              <div>├── <span style="color:var(--accent)">main.go</span> <span style="color:var(--text-muted)">— CLI, flags, signals</span></div>
+              <div>├── <span style="color:var(--accent)">scanner.go</span> <span style="color:var(--text-muted)">— worker pool, fan-out/in</span></div>
+              <div>├── <span style="color:var(--accent)">checker.go</span> <span style="color:var(--text-muted)">— HTTP health check</span></div>
+              <div>├── <span style="color:var(--accent)">result.go</span> <span style="color:var(--text-muted)">— types, errors</span></div>
+              <div>├── <span style="color:var(--accent)">output.go</span> <span style="color:var(--text-muted)">— table/JSON formatters</span></div>
+              <div>├── <span style="color:var(--accent)">scanner_test.go</span> <span style="color:var(--text-muted)">— tests</span></div>
+              <div>└── <span style="color:var(--accent)">urls.txt</span> <span style="color:var(--text-muted)">— sample URLs</span></div>
+            </div>
+          </div>`,
+          desc: 'Suggested file structure. Each file has a clear responsibility — single responsibility principle in action. Start with <code>result.go</code> (types), then <code>checker.go</code>, then <code>scanner.go</code>, then wire it up in <code>main.go</code>.'
+        },
+      ]
+    },
+  ],
 };
 
 function renderVizSelector() {
