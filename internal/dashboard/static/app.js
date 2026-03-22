@@ -1479,6 +1479,203 @@ go func() { wg.Wait(); close(results) }()</code>
       ]
     },
   ],
+  'Testing Mastery': [
+    {
+      title: 'Table-Driven Tests',
+      steps: [
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:12px;align-items:center;width:100%">
+            <div style="background:var(--bg-tertiary);padding:16px;border-radius:8px;width:100%;max-width:500px">
+              <code style="font-size:11px;color:var(--text)">tests := []struct {<br>
+&nbsp;&nbsp;name     string<br>
+&nbsp;&nbsp;input    int<br>
+&nbsp;&nbsp;expected int<br>
+}{<br>
+&nbsp;&nbsp;{"positive", 5, 25},<br>
+&nbsp;&nbsp;{"zero", 0, 0},<br>
+&nbsp;&nbsp;{"negative", -3, 9},<br>
+}</code>
+            </div>
+          </div>`,
+          desc: 'Define test cases as a slice of structs. Each struct has a name, inputs, and expected output. Adding a new test = adding one line. No code duplication.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:12px;align-items:center;width:100%">
+            <div style="background:var(--bg-tertiary);padding:16px;border-radius:8px;width:100%;max-width:500px">
+              <code style="font-size:11px;color:var(--text)">for _, tt := range tests {<br>
+&nbsp;&nbsp;t.Run(tt.name, func(t *testing.T) {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;got := Square(tt.input)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;if got != tt.expected {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;t.Errorf("Square(%d) = %d, want %d",<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tt.input, got, tt.expected)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+&nbsp;&nbsp;})<br>
+}</code>
+            </div>
+          </div>`,
+          desc: '<code>t.Run(name, func)</code> creates a <strong>subtest</strong> for each case. Output shows which case failed: <code>--- FAIL: TestSquare/negative</code>. You can run one case: <code>go test -run TestSquare/negative</code>.'
+        },
+      ]
+    },
+    {
+      title: 'Subtests',
+      steps: [
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:12px;align-items:center;width:100%">
+            <div style="text-align:center;font-weight:600;color:var(--accent)">Test hierarchy</div>
+            <div style="background:var(--bg-tertiary);padding:16px;border-radius:8px;width:100%;max-width:400px;font-size:12px">
+              <div>TestUser/</div>
+              <div style="padding-left:20px;color:var(--green)">├── Create ✅</div>
+              <div style="padding-left:20px;color:var(--green)">├── Get ✅</div>
+              <div style="padding-left:20px;color:var(--red)">├── Update ❌</div>
+              <div style="padding-left:20px;color:var(--green)">└── Delete ✅</div>
+            </div>
+          </div>`,
+          desc: 'Subtests create a hierarchy. Each runs independently — <code>Update</code> fails but others still run. Run one: <code>go test -run TestUser/Update</code>.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:12px;align-items:center;width:100%">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:500px">
+              <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px">
+                <div style="font-weight:600;color:var(--green)">t.Run()</div>
+                <div style="font-size:12px;color:var(--text-muted)">• Named test cases<br>• Run individually with -run<br>• Parallel with t.Parallel()<br>• Shared setup, isolated cases</div>
+              </div>
+              <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px">
+                <div style="font-weight:600;color:var(--accent)">t.Parallel()</div>
+                <div style="font-size:12px;color:var(--text-muted)">• Subtests run concurrently<br>• Faster test suites<br>• Tests must be independent<br>• No shared mutable state</div>
+              </div>
+            </div>
+          </div>`,
+          desc: '<code>t.Run()</code> for organization and selective running. <code>t.Parallel()</code> to run subtests concurrently — speeds up I/O-heavy tests. Combine both with table-driven tests.'
+        },
+      ]
+    },
+    {
+      title: 'Benchmarks',
+      steps: [
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:12px;align-items:center;width:100%">
+            <div style="background:var(--bg-tertiary);padding:16px;border-radius:8px;width:100%;max-width:500px">
+              <code style="font-size:11px;color:var(--text)">func BenchmarkSquare(b *testing.B) {<br>
+&nbsp;&nbsp;for i := 0; i &lt; b.N; i++ {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;Square(42)<br>
+&nbsp;&nbsp;}<br>
+}</code>
+            </div>
+            <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px;width:100%;max-width:500px;font-size:12px">
+              <code>$ go test -bench=.<br>
+BenchmarkSquare-8&nbsp;&nbsp;500000000&nbsp;&nbsp;2.34 ns/op</code>
+            </div>
+          </div>`,
+          desc: 'Benchmarks start with <code>Benchmark</code> and take <code>*testing.B</code>. Go automatically adjusts <code>b.N</code> to get stable timing. Run with <code>go test -bench=.</code> — the dot means "run all benchmarks".'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:12px;align-items:center;width:100%">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:500px">
+              <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px;text-align:center">
+                <div style="font-weight:600;color:var(--accent)">b.N</div>
+                <div style="font-size:12px;color:var(--text-muted)">Go picks iteration count<br>automatically for accuracy</div>
+              </div>
+              <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px;text-align:center">
+                <div style="font-weight:600;color:var(--accent)">b.ResetTimer()</div>
+                <div style="font-size:12px;color:var(--text-muted)">Exclude setup time<br>from measurements</div>
+              </div>
+              <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px;text-align:center">
+                <div style="font-weight:600;color:var(--accent)">-benchmem</div>
+                <div style="font-size:12px;color:var(--text-muted)">Show allocations<br>allocs/op, B/op</div>
+              </div>
+              <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px;text-align:center">
+                <div style="font-weight:600;color:var(--accent)">-count=5</div>
+                <div style="font-size:12px;color:var(--text-muted)">Run N times for<br>statistical confidence</div>
+              </div>
+            </div>
+          </div>`,
+          desc: 'Key flags: <code>-bench=.</code> run all, <code>-benchmem</code> show allocations, <code>-count=5</code> repeat for stability. Use <code>b.ResetTimer()</code> after setup code to exclude it from timing.'
+        },
+      ]
+    },
+    {
+      title: 'Fuzzing',
+      steps: [
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:16px;align-items:center;width:100%">
+            <div style="text-align:center;font-weight:600;color:var(--accent)">How fuzzing works</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              ${goroutine('seed', 'g-sender', '"hello"<br>"test"<br>""')}
+              ${arrow(true)}
+              ${goroutine('fuzzer', 'g-main', 'mutate<br>🎲')}
+              ${arrow(true)}
+              ${goroutine('your func', 'g-receiver', 'crashes?<br>panics?')}
+            </div>
+          </div>`,
+          desc: 'Fuzzing: Go takes your seed inputs, <strong>mutates them randomly</strong> (flip bits, add chars, truncate), and feeds them to your function looking for crashes, panics, or assertion failures.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:12px;align-items:center;width:100%">
+            <div style="background:var(--bg-tertiary);padding:16px;border-radius:8px;width:100%;max-width:500px">
+              <code style="font-size:11px;color:var(--text)">func FuzzReverse(f *testing.F) {<br>
+&nbsp;&nbsp;// Seed corpus — starting inputs<br>
+&nbsp;&nbsp;f.Add("hello")<br>
+&nbsp;&nbsp;f.Add("world")<br>
+&nbsp;&nbsp;f.Add("")<br><br>
+&nbsp;&nbsp;f.Fuzz(func(t *testing.T, s string) {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;rev := Reverse(s)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;doubleRev := Reverse(rev)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;if s != doubleRev {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;t.Errorf("double reverse mismatch")<br>
+&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+&nbsp;&nbsp;})<br>
+}</code>
+            </div>
+          </div>`,
+          desc: 'Start with <code>Fuzz</code> prefix and <code>*testing.F</code>. Add seed values with <code>f.Add()</code>. The <code>f.Fuzz()</code> callback receives mutated inputs. Run: <code>go test -fuzz=FuzzReverse</code> — runs until it finds a failure or you stop it.'
+        },
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:12px;align-items:center;width:100%">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:500px">
+              <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px">
+                <div style="font-weight:600;color:var(--green)">Good for</div>
+                <div style="font-size:12px;color:var(--text-muted)">• Parsers (JSON, URL, regex)<br>• Encoding/decoding<br>• String manipulation<br>• Edge cases you didn't think of</div>
+              </div>
+              <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px">
+                <div style="font-weight:600;color:var(--accent)">Crash corpus</div>
+                <div style="font-size:12px;color:var(--text-muted)">• Failures saved to testdata/<br>• Auto-replayed on next run<br>• Commit to git as regression tests</div>
+              </div>
+            </div>
+          </div>`,
+          desc: 'When fuzzing finds a crash, it saves the input to <code>testdata/fuzz/</code>. Next <code>go test</code> replays it as a regular test case — instant regression test. Great for finding edge cases in parsers and encoders.'
+        },
+      ]
+    },
+    {
+      title: 'Test Helpers',
+      steps: [
+        {
+          canvas: () => `<div style="display:flex;flex-direction:column;gap:12px;align-items:center;width:100%">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:500px">
+              <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px">
+                <div style="font-weight:600;color:var(--accent)">t.Helper()</div>
+                <div style="font-size:12px;color:var(--text-muted)">Mark as helper — error<br>points to caller, not helper</div>
+              </div>
+              <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px">
+                <div style="font-weight:600;color:var(--accent)">t.Cleanup(fn)</div>
+                <div style="font-size:12px;color:var(--text-muted)">Run fn after test ends<br>like defer but for tests</div>
+              </div>
+              <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px">
+                <div style="font-weight:600;color:var(--accent)">t.TempDir()</div>
+                <div style="font-size:12px;color:var(--text-muted)">Auto-cleaned temp dir<br>great for file tests</div>
+              </div>
+              <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px">
+                <div style="font-weight:600;color:var(--accent)">t.Skip()</div>
+                <div style="font-size:12px;color:var(--text-muted)">Skip test conditionally<br>e.g. missing DB connection</div>
+              </div>
+            </div>
+          </div>`,
+          desc: 'Test helpers reduce boilerplate. <code>t.Helper()</code> is critical — without it, test failures point to the helper function instead of the actual test. You already used <code>t.Helper()</code> in the db tests.'
+        },
+      ]
+    },
+  ],
 };
 
 function renderVizSelector() {
